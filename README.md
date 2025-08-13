@@ -1,12 +1,18 @@
-# 月營收成長率計算器
+# 台灣上市+上櫃公司 月營收成長率計算器（已設定 Proxy）
 
-這是一個簡單的 GitHub Pages 網頁工具，可以計算：
-- 8 月 vs 去年同期 成長率
-- 8 月 vs 7 月 成長率
-- 累計營收成長率
+## 功能
+- 輸入股票代號、年份、月份，自動抓取 MOPS 月營收資料
+- 計算：
+  - 當月 vs 去年同期成長率
+  - 當月 vs 上月成長率
+  - 累計 vs 去年同期累計成長率
+- 顯示公式
 
-## 使用方式
-1. 將本專案上傳到 GitHub Repository。
-2. 到 **Settings → Pages** 啟用 GitHub Pages。
-3. 選擇 main 分支，資料夾選擇 `/ (root)`。
-4. 儲存後即可在 `https://你的帳號.github.io/你的專案名稱/` 使用。
+## 部署方法
+1. 此版本已內建 Cloudflare Worker Proxy： `https://misty-star-5347.l9000003216.workers.dev/`
+2. 將 `index.html` 上傳到 GitHub Repository。
+3. 啟用 GitHub Pages，即可使用。
+
+## 資料來源
+- 上市公司：`https://mops.twse.com.tw/nas/t21/sii/`
+- 上櫃公司：`https://mops.twse.com.tw/nas/t21/otc/`
