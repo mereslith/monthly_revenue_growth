@@ -3,77 +3,102 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>月營收成長率計算器</title>
+<title>台灣上市+上櫃公司月營收成長率計算器</title>
 <style>
-    body {
-        font-family: Arial, sans-serif;
-        max-width: 600px;
-        margin: auto;
-        padding: 20px;
-        background-color: #f5f5f5;
-    }
+    body { font-family: Arial, sans-serif; max-width: 800px; margin: auto; padding: 20px; background-color: #f5f5f5; }
     h2 { text-align: center; }
     label { display: block; margin-top: 10px; }
-    input { width: 100%; padding: 8px; margin-top: 5px; }
-    button {
-        margin-top: 15px;
-        padding: 10px;
-        width: 100%;
-        background-color: #4CAF50;
-        color: white;
-        border: none;
-        font-size: 16px;
-    }
+    input, select { width: 100%; padding: 8px; margin-top: 5px; }
+    button { margin-top: 15px; padding: 10px; width: 100%; background-color: #4CAF50; color: white; border: none; font-size: 16px; }
     .result { margin-top: 20px; background: white; padding: 15px; border-radius: 5px; }
+    .formula { font-family: monospace; background: #eef; padding: 5px; border-radius: 3px; }
 </style>
 </head>
 <body>
 
-<h2>📊 月營收成長率計算器</h2>
+<h2>📊 台灣上市+上櫃公司 月營收成長率計算器</h2>
 
-<label>8 月營收</label>
-<input type="number" id="aug" placeholder="輸入 8 月營收">
+<label>股票代號</label>
+<input type="text" id="stockCode" placeholder="例如：2330">
 
-<label>去年同期 8 月營收</label>
-<input type="number" id="aug_last" placeholder="輸入去年同期 8 月營收">
+<label>年份</label>
+<input type="number" id="year" value="2025">
 
-<label>7 月營收</label>
-<input type="number" id="jul" placeholder="輸入 7 月營收">
+<label>月份</label>
+<input type="number" id="month" value="8">
 
-<label>去年同期 7 月營收</label>
-<input type="number" id="jul_last" placeholder="輸入去年同期 7 月營收">
-
-<label>本年迄今累計營收</label>
-<input type="number" id="ytd" placeholder="輸入本年累計營收">
-
-<label>去年同期累計營收</label>
-<input type="number" id="ytd_last" placeholder="輸入去年同期累計營收">
-
-<button onclick="calcGrowth()">計算</button>
+<button onclick="fetchRevenue()">抓取資料並計算</button>
 
 <div class="result" id="result"></div>
 
 <script>
-function calcGrowth() {
-    const aug = parseFloat(document.getElementById('aug').value);
-    const aug_last = parseFloat(document.getElementById('aug_last').value);
-    const jul = parseFloat(document.getElementById('jul').value);
-    const ytd = parseFloat(document.getElementById('ytd').value);
-    const ytd_last = parseFloat(document.getElementById('ytd_last').value);
+// 使用者的 Cloudflare Workers Proxy URL
+const proxyUrl = "https://misty-star-5347.l9000003216.workers.dev/";
+
+async function fetchRevenue() {
+    const code = document.getElementById('stockCode').value.trim();
+    const year = parseInt(document.getElementById('year').value);
+    const month = parseInt(document.getElementById('month').value);
+    if (!code) { alert("請輸入股票代號"); return; }
+
+    const rocYear = year - 1911;
+
+    let urls = [
+        `https://mops.twse.com.tw/nas/t21/sii/t21sc03_${rocYear}_${month}_0.html`,
+        `https://mops.twse.com.tw/nas/t21/otc/t21sc03_${rocYear}_${month}_0.html`
+    ];
+
+    let foundData = null;
+    for (let url of urls) {
+        try {
+            let res = await fetch(proxyUrl + "?url=" + encodeURIComponent(url));
+            let html = await res.text();
+            if (html.includes(code)) {
+                foundData = html;
+                break;
+            }
+        } catch (e) { console.error(e); }
+    }
+
+    if (!foundData) {
+        document.getElementById('result').innerHTML = "<p>找不到該股票的資料，請確認代號與月份。</p>";
+        return;
+    }
+
+    let parser = new DOMParser();
+    let doc = parser.parseFromString(foundData, "text/html");
+    let rows = doc.querySelectorAll("table tr");
+    let rowData = null;
+    rows.forEach(row => {
+        if (row.innerText.includes(code)) {
+            rowData = row.innerText.trim().split(/\s+/);
+        }
+    });
+
+    if (!rowData) {
+        document.getElementById('result').innerHTML = "<p>找不到該股票的營收資料。</p>";
+        return;
+    }
+
+    let aug_revenue = parseFloat(rowData[2].replace(/,/g, ""));
+    let jul_revenue = parseFloat(rowData[3].replace(/,/g, ""));
+    let aug_last_year = parseFloat(rowData[4].replace(/,/g, ""));
+    let ytd_revenue = parseFloat(rowData[5].replace(/,/g, ""));
+    let ytd_last_year = parseFloat(rowData[6].replace(/,/g, ""));
 
     function growth(curr, prev) {
         if (!prev || prev === 0) return "無法計算（前期為 0）";
-        return ((curr - prev) / prev * 100).toFixed(2) + "%";
+        let rate = ((curr - prev) / prev * 100).toFixed(2);
+        let formula = `(${curr} - ${prev}) / ${prev} × 100% = ${rate}%`;
+        return `<div>${rate}%</div><div class="formula">${formula}</div>`;
     }
 
-    const resultHTML = `
-        <h3>計算結果</h3>
-        <p>8 月 vs 去年同期：${growth(aug, aug_last)}</p>
-        <p>8 月 vs 7 月：${growth(aug, jul)}</p>
-        <p>累計營收成長率：${growth(ytd, ytd_last)}</p>
+    document.getElementById('result').innerHTML = `
+        <h3>計算結果 (${code})</h3>
+        <p>當月 vs 去年同期：${growth(aug_revenue, aug_last_year)}</p>
+        <p>當月 vs 上月：${growth(aug_revenue, jul_revenue)}</p>
+        <p>累計 vs 去年同期累計：${growth(ytd_revenue, ytd_last_year)}</p>
     `;
-
-    document.getElementById('result').innerHTML = resultHTML;
 }
 </script>
 
